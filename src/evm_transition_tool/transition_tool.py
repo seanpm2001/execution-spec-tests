@@ -123,6 +123,13 @@ class TransitionTool:
         cls.default_tool = tool_subclass
 
     @classmethod
+    def get_default_tool(cls) -> "TransitionTool":
+        """
+        Returns default transition tool
+        """
+        return cls.default_tool
+
+    @classmethod
     def from_binary_path(cls, *, binary_path: Optional[Path], **kwargs) -> "TransitionTool":
         """
         Instantiates the appropriate TransitionTool subclass derived from the
@@ -168,8 +175,7 @@ class TransitionTool:
             for subclass in subclasses:
                 if subclass.detect_binary(binary_output):
                     return subclass(binary=binary, **kwargs)
-
-        raise UnknownTransitionTool(f"Unknown transition tool binary: {binary_path}")
+        return cls.get_default_tool()(binary=binary, **kwargs)
 
     @classmethod
     def detect_binary(cls, binary_output: str) -> bool:
