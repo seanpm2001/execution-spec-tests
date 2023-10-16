@@ -48,3 +48,11 @@ class GethTransitionTool(TransitionTool):
         If the fork is a transition fork, we want to check the fork it transitions to.
         """
         return fork.fork() in self.help_string
+
+
+class GethTransitionToolFilesystem(GethTransitionTool):
+    """
+    Geth transition tool interface that uses filesystem for t8n
+    """
+
+    t8n_use_stream = False
