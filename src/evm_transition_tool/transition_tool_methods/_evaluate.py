@@ -7,7 +7,9 @@ import shutil
 import subprocess
 import tempfile
 import textwrap
+import textwrap
 from typing import Any, Dict, List, Optional, Tuple
+from ._filesystem import _dump_files_to_directory, _write_json_file
 
 def _evaluate_stream(
         self,
@@ -25,30 +27,11 @@ def _evaluate_stream(
         Executes a transition tool using stdin and stdout for its inputs and outputs.
         """
         fork_name = apply_eips_to_forkname(fork_name, eips)
-
-        if int(env["currentNumber"], 0) == 0:
-            reward = -1
-
-        command: list[str] = [str(self.binary)]
-        if self.t8n_subcommand:
-            command.append(self.t8n_subcommand)
-
-        args = command + [
-            "--input.alloc=stdin",
-            "--input.txs=stdin",
-            "--input.env=stdin",
-            "--output.result=stdout",
-            "--output.alloc=stdout",
-            "--output.body=stdout",
-            f"--state.fork={fork_name}",
-            f"--state.chainid={chain_id}",
-            f"--state.reward={reward}",
-        ]
-
+        reward = correct_reward_for_genesis(reward, env)
+        temp_dir = ""
         if self.trace:
-            temp_dir = tempfile.TemporaryDirectory()
-            args.append("--trace")
-            args.append(f"--output.basedir={temp_dir.name}")
+            temp_dir = make_tempdir()
+        args = make_stream_args(self, fork_name, chain_id, reward, temp_dir)
 
         stdin = {
             "alloc": alloc,
@@ -77,7 +60,7 @@ def _evaluate_stream(
                 {t8n_call} < {debug_output_path}/stdin.txt
                 """
             )
-            dump_files_to_directory(
+            _dump_files_to_directory(
                 debug_output_path,
                 {
                     "args.py": args,
@@ -101,7 +84,7 @@ def _evaluate_stream(
             raise Exception("Malformed t8n output: missing 'alloc', 'result' or 'body'.")
 
         if debug_output_path:
-            dump_files_to_directory(
+            _dump_files_to_directory(
                 debug_output_path,
                 {
                     "output/alloc.json": output["alloc"],
@@ -116,6 +99,28 @@ def _evaluate_stream(
 
         return output["alloc"], output["result"]
 
+def make_stream_args(self, fork_name, chain_id, reward, temp_dir):
+    command: list[str] = [str(self.binary)]
+    if self.t8n_subcommand:
+        command.append(self.t8n_subcommand)
+
+    args = command + [
+        "--input.alloc=stdin",
+        "--input.txs=stdin",
+        "--input.env=stdin",
+        "--output.result=stdout",
+        "--output.alloc=stdout",
+        "--output.body=stdout",
+        f"--state.fork={fork_name}",
+        f"--state.chainid={chain_id}",
+        f"--state.reward={reward}",
+    ]
+
+    if self.trace:
+        args.append("--trace")
+        args.append(f"--output.basedir={temp_dir.name}")
+
+    return args
 
 def _evaluate_filesystem(
         self,
@@ -148,7 +153,7 @@ def _evaluate_filesystem(
             k: os.path.join(temp_dir.name, "input", f"{k}.json") for k in input_contents.keys()
         }
         for key, file_path in input_paths.items():
-            write_json_file(input_contents[key], file_path)
+            _write_json_file(input_contents[key], file_path)
 
         output_paths = {
             output: os.path.join("output", f"{output}.json") for output in ["alloc", "result"]
@@ -211,7 +216,7 @@ def _evaluate_filesystem(
                 {t8n_call}
                 """
             )
-            dump_files_to_directory(
+            _dump_files_to_directory(
                 debug_output_path,
                 {
                     "args.py": args,
@@ -243,7 +248,15 @@ def _evaluate_filesystem(
         return output_contents["alloc"], output_contents["result"]
 
 
+def correct_reward_for_genesis(reward, env):
+    if int(env["currentNumber"], 0) == 0:
+        return -1
+    return reward
+
 def apply_eips_to_forkname(fork_name, eips):
     if eips is not None:
         fork_name = "+".join([fork_name] + [str(eip) for eip in eips])
     return fork_name
+
+def make_tempdir():
+    return tempfile.TemporaryDirectory()
