@@ -8,6 +8,7 @@ from glob import glob
 from pathlib import Path
 from typing import Dict, List, Literal
 
+import rich
 import yaml
 from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
@@ -95,7 +96,7 @@ class Environment(BaseModel):
     current_base_fee: HexNumber | None = Field(None)
     current_random: Hash | None = Field(None)
     current_excess_blob_gas: HexNumber | None = Field(None)
-
+    previous_hash: Hash | None = Field(None)
     model_config = CAMEL_CASE_CONFIG
 
 
@@ -235,24 +236,50 @@ class StateFiller(BaseModel):
     """
 
     tests: Dict[str, StateTest]
+    filenames: Dict[str, List[str]]
 
     @classmethod
-    def from_json(cls, path: Path) -> None:
+    def from_json(cls, path: Path) -> "StateFiller":
         """
         Read the state filler from a JSON file.
         """
         with open(path, "r") as f:
             o = json.load(f)
-            StateFiller(tests=remove_comments(o))
+            tests = remove_comments(o)
+            return cls(tests=tests, filenames={str(path): list(tests.keys())})
 
     @classmethod
-    def from_yml(cls, path: Path) -> None:
+    def from_yml(cls, path: Path) -> "StateFiller":
         """
         Read the state filler from a YML file.
         """
         with open(path, "r") as f:
             o = yaml.load(f, Loader=yaml.FullLoader)
-            StateFiller(tests=remove_comments(o))
+            tests = remove_comments(o)
+            return cls(tests=tests, filenames={str(path): list(tests.keys())})
+
+    def to_file(self, base_output_dir: Path) -> None:
+        """
+        Write the state fillers to file.
+        """
+        for filename, test_names in self.filenames.items():
+            output_file = base_output_dir / Path(filename).relative_to("/")
+            output_file.parent.mkdir(parents=True, exist_ok=True)
+            tests = {test_name: self.tests[test_name] for test_name in test_names}
+            state_fillers_this_file = StateFiller(tests=tests, filenames={})
+
+            if filename.endswith(".json"):
+                json = state_fillers_this_file.model_dump_json(
+                    exclude={"filenames"}, by_alias=True, indent=2
+                )
+                with open(output_file, "w") as f:
+                    f.write(json)
+            elif filename.endswith(".yml"):
+                model_dict = state_fillers_this_file.model_dump(
+                    exclude={"filenames"}, by_alias=True
+                )
+                with open(output_file, "w") as f:
+                    yaml.dump(model_dict, f, indent=2)
 
 
 def main() -> None:
@@ -268,17 +295,28 @@ def main() -> None:
 
     args = parser.parse_args()
 
-    files = glob(str(args.folder_path / "**" / "*.json")) + glob(
-        str(args.folder_path / "**" / "*.yml")
-    )
+    file_extensions = [".json", ".yml"]
+    files = [
+        file
+        for extension in file_extensions
+        for file in glob(str(args.folder_path / "**" / f"*{extension}"), recursive=True)
+    ]
 
-    filler_cls = StateFiller
+    rich.print(files)
+    state_fillers = StateFiller(tests={}, filenames={})
+
     if args.mode == "blockchain":
         raise NotImplementedError("Blockchain filler not implemented yet.")
 
     for file in files:
-        print(file)
+        new_fillers = StateFiller(tests={}, filenames={})
         if file.endswith(".json"):
-            filler_cls.from_json(Path(file))
+            new_fillers = StateFiller.from_json(Path(file))
         elif file.endswith(".yml"):
-            filler_cls.from_yml(Path(file))
+            new_fillers = StateFiller.from_yml(Path(file))
+        state_fillers.tests.update(new_fillers.tests)
+        state_fillers.filenames.update(new_fillers.filenames)
+
+    # rich.print(state_fillers)
+
+    state_fillers.to_file(base_output_dir=Path("/tmp/"))
