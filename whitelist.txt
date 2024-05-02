@@ -183,6 +183,7 @@ kzgs
 lastblockhash
 len
 linux
+lineno
 listdir
 lll
 lllc
