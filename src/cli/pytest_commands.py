@@ -132,6 +132,22 @@ def handle_help_flags(
         return list(pytest_args)
 
 
+def default_fill_output_directory() -> str:
+    """
+    Returns the default output directory used for the fill command.
+    """
+    return "fixtures"
+
+
+def default_html_report_name(command="fill") -> str:
+    """
+    Returns the default HTML report path used for the fill command.
+    """
+    if command == "fill":
+        return "report_fill.html"
+    raise ValueError(f"Unknown command: {command}")
+
+
 def handle_html_report_flags(
     pytest_args: List[str],
     no_html_flag: bool,
@@ -141,15 +157,35 @@ def handle_html_report_flags(
     """
     Modifies the html report arguments passed to the click CLI command before forwarding to
     the pytest command.
+
+    This is to achieve the following behavior by default:
+
+    1. If no flags are passed, write the html report to the default output
+        directory.
+    2. If an output directory is passed, write the html report to that directory.
     """
     if no_html_flag:
-        return list(pytest_args)
-    elif pytest_html_path:
-        return list(pytest_args) + [f"--html={pytest_html_path}"]
-    elif output_path:
-        return list(pytest_args) + [f"--html={output_path}/report.html", "--output", output_path]
-    else:
-        return list(pytest_args) + ["--html=fixtures/report.html"]
+        return list(pytest_args) + [f"--output={default_fill_output_directory()}"]
+    if output_path and pytest_html_path:
+        return list(pytest_args) + [
+            f"--html={pytest_html_path}",
+            f"--output={output_path}",
+        ]
+    if pytest_html_path:
+        return list(pytest_args) + [
+            f"--html={pytest_html_path}",
+            f"--output={default_fill_output_directory()}",
+        ]
+    if output_path:
+        return list(pytest_args) + [
+            f"--html={output_path}/{default_html_report_name('fill')}",
+            f"--output={output_path}",
+        ]
+    # use default options for both
+    return list(pytest_args) + [
+        f"--html={default_fill_output_directory()}/{default_html_report_name('fill')}",
+        f"--output={default_fill_output_directory()}",
+    ]
 
 
 @click.command(context_settings=dict(ignore_unknown_options=True))
