@@ -50,7 +50,7 @@ class InvalidityReason(Enum):
 @pytest.mark.parametrize(
     "eoa_balance",
     [
-        pytest.param(0, marks=pytest.mark.xfail(reason="evm fails on zero balance")),
+        pytest.param(0),
         pytest.param(1),
     ],
 )
@@ -406,7 +406,7 @@ def test_address_from_set_code(
 @pytest.mark.parametrize(
     "balance",
     [
-        pytest.param(0, marks=pytest.mark.xfail(reason="evm fails on zero balance")),
+        pytest.param(0),
         pytest.param(10**18),
     ],
 )
@@ -479,7 +479,7 @@ def test_ext_code_on_set_code(
 @pytest.mark.parametrize(
     "balance",
     [
-        pytest.param(0, marks=pytest.mark.xfail(reason="evm fails on zero balance")),
+        pytest.param(0),
         pytest.param(10**18),
     ],
 )
@@ -727,10 +727,8 @@ def test_set_code_multiple_valid_authorization_tuples_first_invalid_same_signer(
     "invalidity_reason",
     [
         InvalidityReason.NONCE,
-        pytest.param(
-            InvalidityReason.MULTIPLE_NONCE, marks=pytest.mark.xfail(reason="test issue")
-        ),
-        pytest.param(InvalidityReason.CHAIN_ID, marks=pytest.mark.xfail(reason="evm issue")),
+        pytest.param(InvalidityReason.MULTIPLE_NONCE),
+        pytest.param(InvalidityReason.CHAIN_ID),
     ],
 )
 def test_set_code_invalid_authorization_tuple(
