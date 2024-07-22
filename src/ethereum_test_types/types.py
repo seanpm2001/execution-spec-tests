@@ -49,6 +49,16 @@ from ethereum_test_exceptions import TransactionException
 from ethereum_test_forks import Fork
 
 
+def int_to_bytes(value: int) -> bytes:
+    """
+    Converts an integer to its big-endian representation.
+    """
+    if value == 0:
+        return b""
+
+    return int_to_bytes(value // 256) + bytes([value % 256])
+
+
 # Sentinel classes
 class Removable:
     """
@@ -1050,10 +1060,7 @@ class Transaction(TransactionGeneric[HexNumber], TransactionTransitionToolConver
         """
         if self.to is not None:
             raise ValueError("transaction is not a contract creation")
-        nonce_bytes = (
-            bytes() if self.nonce == 0 else self.nonce.to_bytes(length=1, byteorder="big")
-        )
-        hash = keccak256(eth_rlp.encode([self.sender, nonce_bytes]))
+        hash = keccak256(eth_rlp.encode([self.sender, int_to_bytes(self.nonce)]))
         return Address(hash[-20:])
 
 
