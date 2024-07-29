@@ -76,6 +76,7 @@ from .code import (
     Yul,
     YulCompiler,
 )
+from .generators import GasTestType, bytecode_gas_test
 
 __all__ = (
     "SPEC_TYPES",
@@ -105,6 +106,7 @@ __all__ = (
     "EOFTest",
     "EOFTestFiller",
     "FixtureCollector",
+    "GasTestType",
     "Hash",
     "Header",
     "Initcode",
@@ -135,6 +137,7 @@ __all__ = (
     "Yul",
     "YulCompiler",
     "add_kzg_version",
+    "bytecode_gas_test",
     "ceiling_division",
     "compute_create_address",
     "compute_create2_address",
